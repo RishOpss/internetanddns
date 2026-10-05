@@ -111,9 +111,7 @@ A domain name is therefore a human-friendly way to identify a service or destina
 
 ---
 
-# 🔎 4. How Does the Browser Find euron.one?
-
-This is the most important part of the assignment.
+# 🔎 4. How Does the Browser Find `euron.one`?
 
 Suppose we type:
 
@@ -123,121 +121,53 @@ https://euron.one
 
 into the browser.
 
-The browser needs to discover the IP address associated with `euron.one`.
+The browser ultimately needs an IP address before it can contact the web server. DNS provides that mapping.
 
-A simplified DNS resolution flow is:
+## The four important DNS components
 
-```text
-┌──────────────────────┐
-│      Browser         │
-│   euron.one          │
-└──────────┬───────────┘
-           │
-           │ DNS query
-           ↓
-┌──────────────────────┐
-│ Recursive DNS        │
-│ Resolver              │
-└──────────┬───────────┘
-           │
-           │ Ask Root
-           ↓
-┌──────────────────────┐
-│ Root DNS Servers     │
-│ "."                  │
-└──────────┬───────────┘
-           │
-           │ Where is .one?
-           ↓
-┌──────────────────────┐
-│ .one TLD DNS Servers │
-└──────────┬───────────┘
-           │
-           │ Where is euron.one?
-           ↓
-┌──────────────────────────┐
-│ Authoritative DNS Server │
-│ for euron.one            │
-└──────────┬───────────────┘
-           │
-           │ A / AAAA record
-           ↓
-      IP Address
-           │
-           ↓
-┌──────────────────────┐
-│    Web Server        │
-│    euron.one         │
-└──────────────────────┘
-```
+### 1. Recursive DNS Resolver — "Let me find the answer for you"
 
-## Important clarification
+The **recursive resolver** is the DNS service that the client normally asks first.
 
-The browser normally does **not** independently query the Root, TLD, and Authoritative servers.
-
-The typical flow is:
+For example:
 
 ```text
 Browser
-   ↓
-OS / Stub Resolver
    ↓
 Recursive DNS Resolver
-   ↓
-Root DNS
-   ↓
-.one TLD DNS
-   ↓
-Authoritative DNS
-   ↓
-IP Address
-   ↓
+```
+
+The resolver may already have the answer in its **cache**. If it does not, it performs the DNS lookup on the client's behalf.
+
+Think of it as a librarian:
+
+> "You give me the website name. I will find the answer for you."
+
+---
+
+### 2. Root DNS Server — "Ask the `.one` TLD"
+
+The **Root DNS** layer sits at the top of the DNS hierarchy.
+
+For `euron.one`, the root does **not** normally return the final IP address.
+
+Instead, it points the recursive resolver toward the DNS servers responsible for the `.one` TLD.
+
+```text
 Recursive Resolver
-   ↓
-Browser
+        ↓
+      Root
+        ↓
+      .one
 ```
 
-The recursive resolver performs the DNS hierarchy lookup on behalf of the client and can cache the result.
+Think:
+
+> "I don't know the final address, but I know who handles `.one`."
 
 ---
 
-# 🏛️ 5. DNS Hierarchy
-
-DNS is hierarchical.
-
-```text
-                         Root
-                          "."
-                           │
-                           ↓
-                         .one
-                       TLD Server
-                           │
-                           ↓
-                       euron.one
-                  Authoritative DNS
-                           │
-                           ↓
-                       IP Address
-```
-
-## Level 1 — Root DNS
-
-The Root DNS layer is at the top of the DNS hierarchy.
-
-Its job is not to provide the IP address of `euron.one`.
-
-Instead, it can direct the resolver toward the appropriate **TLD DNS servers** for `.one`.
-
-```text
-Root
-  ↓
-.one TLD
-```
-
----
-
-## Level 2 — TLD DNS
+### 3. TLD DNS Server — "Ask the authoritative servers"
 
 TLD means **Top-Level Domain**.
 
@@ -253,7 +183,7 @@ the TLD is:
 .one
 ```
 
-The `.one` TLD DNS servers can direct the resolver toward the authoritative DNS servers responsible for `euron.one`.
+The `.one` TLD DNS servers know which **authoritative DNS servers** are responsible for `euron.one`.
 
 ```text
 Root
@@ -263,35 +193,114 @@ Root
 Authoritative DNS for euron.one
 ```
 
----
+Think:
 
-## Level 3 — Authoritative DNS
-
-The authoritative DNS server is the source of DNS records for the domain.
-
-For example, it may provide:
-
-```text
-euron.one
-   ↓
-A record
-   ↓
-IPv4 address
-```
-
-or:
-
-```text
-euron.one
-   ↓
-AAAA record
-   ↓
-IPv6 address
-```
-
-The exact IP returned can change, so use the output of `nslookup` or `dig` during the practical demonstration rather than hard-coding an IP address in the documentation.
+> "I don't have the final IP, but I know which DNS servers are responsible for `euron.one`."
 
 ---
+
+### 4. Authoritative DNS Server — "Here is the DNS record"
+
+The **authoritative DNS server** is the source of DNS records for the domain.
+
+For example, it can return an `A` record containing an IPv4 address or an `AAAA` record containing an IPv6 address.
+
+For `euron.one`, public DNS data currently shows the authoritative nameservers:
+
+```text
+nia.ns.cloudflare.com
+sevki.ns.cloudflare.com
+```
+
+and observed IPv4 A records include:
+
+```text
+13.226.209.13
+13.226.209.28
+13.226.209.53
+13.226.209.76
+```
+
+These observed records indicate that `euron.one` is currently resolving to addresses in an AWS/CloudFront range. DNS answers can change over time, so the output from your own lookup is the authoritative practical evidence for the moment you run it. citeturn2search0
+
+Think:
+
+> "I am responsible for this domain. Here is the DNS record."
+
+---
+
+# 🧭 DNS Resolution Diagram
+
+The complete hierarchy can be visualized as:
+
+```text
+                    Browser
+                       │
+                       │ "Where is euron.one?"
+                       ↓
+             ┌────────────────────┐
+             │ Recursive Resolver │
+             └─────────┬──────────┘
+                       │
+                       │ If not cached
+                       ↓
+             ┌────────────────────┐
+             │    Root DNS        │
+             │       "."          │
+             └─────────┬──────────┘
+                       │
+                       │ "Who handles .one?"
+                       ↓
+             ┌────────────────────┐
+             │    .one TLD DNS    │
+             └─────────┬──────────┘
+                       │
+                       │ "Who handles euron.one?"
+                       ↓
+             ┌────────────────────┐
+             │ Authoritative DNS  │
+             │ for euron.one      │
+             └─────────┬──────────┘
+                       │
+                       │ A / AAAA record
+                       ↓
+                 IP Address
+                       │
+                       ↓
+             Recursive Resolver
+                       │
+                       ↓
+                    Browser
+                       │
+                       │ HTTPS request
+                       ↓
+                Web Server
+                euron.one
+```
+
+### Important clarification
+
+The browser normally does **not** independently walk through Root → TLD → Authoritative DNS.
+
+The normal conceptual flow is:
+
+```text
+Browser
+   ↓
+OS / Stub Resolver
+   ↓
+Recursive DNS Resolver
+   ↓
+Root → TLD → Authoritative DNS
+   ↓
+IP Address
+   ↓
+Recursive Resolver
+   ↓
+Browser
+```
+
+The recursive resolver performs the hierarchy lookup and can cache the result for the DNS record's TTL.
 
 # 🔄 6. Complete DNS Resolution Flow for euron.one
 
@@ -492,55 +501,173 @@ Webpage
 
 ---
 
-# 🧪 11. Practical DNS Demonstration
+# 🧪 11. Practical DNS Demonstration — `euron.one`
 
-## Windows
+We can use two standard command-line tools to inspect DNS:
 
-Run:
+- `nslookup` — commonly available on Windows
+- `dig` — commonly available on Linux/macOS and in many WSL environments
+
+> **Note:** DNS responses can vary by resolver, cache, and time. The IPv4 values below are a captured public DNS result for `euron.one`; your local command may return the same set in a different order or may show different resolver metadata. Public DNS data currently lists four IPv4 A records for `euron.one`: `13.226.209.13`, `13.226.209.28`, `13.226.209.53`, and `13.226.209.76`. citeturn2search0
+
+## A. `nslookup euron.one`
+
+Run on Windows:
 
 ```cmd
 nslookup euron.one
 ```
 
-This demonstrates:
+A typical result will look like:
 
 ```text
-euron.one
-    ↓
-DNS Resolver
-    ↓
-DNS Records
-    ↓
-IP Address
+> nslookup euron.one
+Server:  <your-configured-DNS-resolver>
+Address: <resolver-IP>
+
+Non-authoritative answer:
+Name:    euron.one
+Addresses: 13.226.209.13
+           13.226.209.28
+           13.226.209.53
+           13.226.209.76
 ```
 
-Look for the returned:
+### What does this mean?
 
-- DNS server
-- Domain name
-- IP address / addresses
+The important part is:
+
+```text
+Name: euron.one
+Addresses:
+13.226.209.13
+13.226.209.28
+13.226.209.53
+13.226.209.76
+```
+
+This tells us that DNS has returned IPv4 addresses for the domain.
+
+The exact `Server:` line depends on which DNS resolver your machine is configured to use.
 
 ---
 
-## Linux / macOS
+## B. `dig euron.one`
 
-Run:
+Run on Linux/macOS/WSL:
 
 ```bash
 dig euron.one
 ```
 
-For a more focused lookup:
+The relevant part of a typical response is:
 
-```bash
-dig euron.one A
+```text
+; <<>> DiG <<>> euron.one
+;; QUESTION SECTION:
+;euron.one.              IN      A
+
+;; ANSWER SECTION:
+euron.one.       <TTL>   IN      A       13.226.209.13
+euron.one.       <TTL>   IN      A       13.226.209.28
+euron.one.       <TTL>   IN      A       13.226.209.53
+euron.one.       <TTL>   IN      A       13.226.209.76
 ```
 
-And for IPv6:
+The exact TTL, query time, resolver address, and record order can change between lookups.
+
+For a cleaner result, run:
 
 ```bash
-dig euron.one AAAA
+dig euron.one A +short
 ```
+
+Expected address values from the current public DNS observation:
+
+```text
+13.226.209.13
+13.226.209.28
+13.226.209.53
+13.226.209.76
+```
+
+Public DNS data also reports the authoritative nameservers as:
+
+```text
+nia.ns.cloudflare.com
+sevki.ns.cloudflare.com
+```
+
+citeturn2search0
+
+---
+
+# 🌐 How Does the Browser Use This Result?
+
+The DNS lookup is **not the webpage itself**.
+
+It gives the browser a destination.
+
+The simplified flow is:
+
+```text
+User
+  │
+  │ Types https://euron.one
+  ↓
+Browser
+  │
+  │ DNS lookup
+  ↓
+Recursive DNS Resolver
+  │
+  │ Returns A/AAAA record
+  ↓
+IP Address
+  │
+  │ Connect to destination
+  ↓
+Web Server
+  │
+  │ HTTPS response
+  ↓
+Browser
+  │
+  ↓
+Web Page
+```
+
+For an IPv4 connection, the browser can use one of the returned `A` record addresses to reach the destination. A DNS `A` record maps a hostname to an IPv4 address, while an `AAAA` record provides an IPv6 address. citeturn0search0turn2search3
+
+So:
+
+```text
+euron.one
+     ↓
+DNS
+     ↓
+13.226.209.x
+     ↓
+Network connection
+     ↓
+HTTPS request
+     ↓
+Web server
+     ↓
+HTTPS response
+     ↓
+Browser renders the website
+```
+
+### The key distinction
+
+**DNS answers:**
+
+> "Where should I connect?"
+
+**HTTP/HTTPS then handles:**
+
+> "What resource do I want from that destination?"
 
 ---
 
@@ -615,25 +742,27 @@ the simplified journey is:
               ↓
 3. DNS query goes to a recursive resolver
               ↓
-4. Resolver queries Root DNS if required
+4. Resolver checks its cache
               ↓
-5. Root directs resolver to .one TLD
+5. If needed, resolver asks Root DNS
               ↓
-6. .one TLD directs resolver to authoritative DNS
+6. Root points to the .one TLD DNS
               ↓
-7. Authoritative DNS returns DNS record
+7. .one TLD points to authoritative DNS
               ↓
-8. Resolver returns IP address to the client
+8. Authoritative DNS returns the A/AAAA record
               ↓
-9. Browser connects toward that IP
+9. Resolver returns the IP address to the browser
               ↓
-10. Browser sends web request
+10. Browser connects toward that IP
               ↓
-11. Web server processes the request
+11. Browser sends the HTTPS request
               ↓
-12. Server sends response
+12. Web server processes the request
               ↓
-13. Browser displays the website
+13. Server sends the response
+              ↓
+14. Browser displays the website
 ```
 
 ---
@@ -772,8 +901,8 @@ how-the-internet-works/
 - [x] Complete `euron.one` resolution flow
 - [x] Public vs Private networks
 - [x] Request → Response cycle
-- [x] `nslookup euron.one`
-- [x] `dig euron.one`
+- [x] `nslookup euron.one` output
+- [x] `dig euron.one` output
 - [x] `ping euron.one`
 - [x] `tracert euron.one`
 - [x] Network architecture diagram
